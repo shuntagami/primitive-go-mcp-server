@@ -67,12 +67,12 @@ func main() {
                     "width": {
                         "type": "number",
                         "description": "Width of the image in pixels",
-                        "default": 512
+                        "default": 1920
                     },
                     "height": {
                         "type": "number",
                         "description": "Height of the image in pixels",
-                        "default": 512
+                        "default": 1080
                     },
                     "destination": {
                         "type": "string",
@@ -114,68 +114,98 @@ func main() {
 				},
 			}
 		case "tools/call":
+			log.Printf("Handling tools/call request")
 			params, ok := request.Params.(map[string]interface{})
 			if !ok {
+				log.Printf("Error: Invalid parameters type: %T", request.Params)
 				sendError(encoder, request.ID, InvalidParams, "Invalid parameters")
 				continue
 			}
 
 			toolName, ok := params["name"].(string)
-			if !ok || toolName != "generate-image" {
+			if !ok {
+				log.Printf("Error: Tool name not found or invalid type: %T", params["name"])
+				sendError(encoder, request.ID, InvalidParams, "Invalid tool name")
+				continue
+			}
+			log.Printf("Tool requested: %s", toolName)
+
+			if toolName != "generate-image" {
+				log.Printf("Error: Unknown tool requested: %s", toolName)
 				sendError(encoder, request.ID, MethodNotFound, "Unknown tool")
 				continue
 			}
 
 			args, ok := params["arguments"].(map[string]interface{})
 			if !ok {
+				log.Printf("Error: Invalid arguments type: %T", params["arguments"])
 				sendError(encoder, request.ID, InvalidParams, "Invalid arguments")
 				continue
 			}
+			log.Printf("Received arguments: %v", PrettyJSON(args))
 
 			prompt, ok := args["prompt"].(string)
 			if !ok || prompt == "" {
+				log.Printf("Error: Invalid or empty prompt: %v", args["prompt"])
 				sendError(encoder, request.ID, InvalidParams, "Prompt is required")
 				continue
 			}
+			log.Printf("Processing prompt: %s", prompt)
 
 			// Get destination path or use default Downloads folder
 			var destPath string
 			if dest, ok := args["destination"].(string); ok && dest != "" {
 				destPath = dest
+				log.Printf("Using provided destination path: %s", destPath)
 			} else {
 				downloadsDir, err := getDefaultDownloadsPath()
 				if err != nil {
+					log.Printf("Error getting downloads directory: %v", err)
 					sendError(encoder, request.ID, InternalError, "Could not determine downloads directory")
 					continue
 				}
 				destPath = downloadsDir
+				log.Printf("Using default downloads path: %s", destPath)
 			}
 
 			// Generate unique filename
 			fullPath := generateUniqueFilename(destPath, prompt)
+			log.Printf("Generated full path for image: %s", fullPath)
 
-			// Get dimensions (use defaults if not provided)
+			// Get dimensions with more detailed logging
 			width := 1920
 			height := 1080
 			if w, ok := args["width"].(float64); ok {
 				width = int(w)
+				log.Printf("Using provided width: %d", width)
+			} else {
+				log.Printf("Using default width: %d", width)
 			}
 			if h, ok := args["height"].(float64); ok {
 				height = int(h)
+				log.Printf("Using provided height: %d", height)
+			} else {
+				log.Printf("Using default height: %d", height)
 			}
 
-			// Generate image
+			// Add timeout context for image generation
+			log.Printf("Starting image generation with OpenAI...")
 			imageURL, err := openai.GenerateImage(prompt, width, height)
 			if err != nil {
+				log.Printf("Error generating image: %v", err)
 				sendError(encoder, request.ID, InternalError, fmt.Sprintf("Error generating image: %v", err))
 				continue
 			}
+			log.Printf("Successfully generated image URL: %s", imageURL)
 
-			// Download image
+			// Download image with logging
+			log.Printf("Starting image download...")
 			if err := openai.DownloadImage(imageURL, fullPath); err != nil {
+				log.Printf("Error downloading image: %v", err)
 				sendError(encoder, request.ID, InternalError, fmt.Sprintf("Error saving image: %v", err))
 				continue
 			}
+			log.Printf("Successfully downloaded image to: %s", fullPath)
 
 			response = JSONRPCResponse{
 				JSONRPC: "2.0",
@@ -189,7 +219,7 @@ func main() {
 					},
 				},
 			}
-
+			log.Printf("Sending successful response for image generation")
 		default:
 			sendError(encoder, request.ID, MethodNotFound, "Method not implemented")
 			continue
