@@ -34,17 +34,6 @@ func main() {
 			continue
 		}
 
-		// Handle notifications (messages with null ID) separately
-		if request.Method == "cancelled" {
-			if params, ok := request.Params.(map[string]interface{}); ok {
-				log.Printf("Received cancellation notification for request ID: %v, reason: %v",
-					params["requestId"], params["reason"])
-			} else {
-				log.Printf("Received cancellation notification with invalid params")
-			}
-			continue // Skip sending response for notifications
-		}
-
 		var response interface{}
 
 		switch request.Method {
@@ -243,7 +232,14 @@ func main() {
 				},
 			}
 			log.Printf("Sending successful response for image generation")
-
+		case "cancelled":
+			if params, ok := request.Params.(map[string]interface{}); ok {
+				log.Printf("Received cancellation notification for request ID: %v, reason: %v",
+					params["requestId"], params["reason"])
+			} else {
+				log.Printf("Received cancellation notification with invalid params")
+			}
+			continue // Skip sending response for notifications
 		default:
 			sendError(encoder, request.ID, MethodNotFound, "Method not implemented")
 			continue
