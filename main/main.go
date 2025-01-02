@@ -232,7 +232,14 @@ func main() {
 				},
 			}
 			log.Printf("Sending successful response for image generation")
-
+		case "cancelled":
+			log.Printf("Received cancellation for request ID: %v", request.ID)
+			// Just acknowledge the cancellation, no action needed
+			response = JSONRPCResponse{
+				JSONRPC: "2.0",
+				ID:      request.ID,
+				Result:  struct{}{}, // empty result
+			}
 		default:
 			sendError(encoder, request.ID, MethodNotFound, "Method not implemented")
 			continue
@@ -248,17 +255,25 @@ func main() {
 }
 
 func sendError(encoder *json.Encoder, id interface{}, code int, message string) {
-	response := JSONRPCResponse{
-		JSONRPC: "2.0", // Add this
-		ID:      id,
-		Result:  nil, // Explicitly set result to nil when there's an error
-		Error: &JSONRPCError{
-			Code:    code,
-			Message: message,
+	// For a null ID in the request, we should respond with a null ID
+	var responseID interface{} = id
+	if id == nil {
+		responseID = nil
+	}
+
+	response := map[string]interface{}{
+		"jsonrpc": "2.0",
+		"id":      responseID,
+		"error": map[string]interface{}{
+			"code":    code,
+			"message": message,
 		},
 	}
+
 	log.Printf("Sending error response: %v", PrettyJSON(response))
-	sendResponse(encoder, response)
+	if err := encoder.Encode(response); err != nil {
+		log.Printf("Error encoding error response: %v", err)
+	}
 }
 
 func sendResponse(encoder *json.Encoder, response interface{}) {
