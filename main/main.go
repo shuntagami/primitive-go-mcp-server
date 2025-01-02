@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 
 	"github.com/prasanth/myservers/imagegen-go/pkg/openai"
 )
@@ -67,12 +68,12 @@ func main() {
                     "width": {
                         "type": "number",
                         "description": "Width of the image in pixels",
-                        "default": 1920
+                        "default": 512
                     },
                     "height": {
                         "type": "number",
                         "description": "Height of the image in pixels",
-                        "default": 1080
+                        "default": 512
                     },
                     "destination": {
                         "type": "string",
@@ -152,25 +153,36 @@ func main() {
 			}
 			log.Printf("Processing prompt: %s", prompt)
 
-			// Get destination path or use default Downloads folder
+			// Get destination path or use filename from sanitized prompt
 			var destPath string
 			if dest, ok := args["destination"].(string); ok && dest != "" {
 				destPath = dest
 				log.Printf("Using provided destination path: %s", destPath)
 			} else {
-				downloadsDir, err := getDefaultDownloadsPath()
-				if err != nil {
-					log.Printf("Error getting downloads directory: %v", err)
-					sendError(encoder, request.ID, InternalError, "Could not determine downloads directory")
-					continue
+				// Create filename from sanitized prompt
+				sanitized := sanitizeFilename(prompt)
+				defaultPath := os.Getenv("DEFAULT_DOWNLOAD_PATH")
+				if defaultPath == "" {
+					homeDir, err := os.UserHomeDir()
+					if err != nil {
+						log.Printf("Error getting user home directory: %v", err)
+						sendError(encoder, request.ID, InternalError, "Could not determine default path")
+						continue
+					}
+					defaultPath = filepath.Join(homeDir, "Downloads")
 				}
-				destPath = downloadsDir
-				log.Printf("Using default downloads path: %s", destPath)
+				destPath = filepath.Join(defaultPath, sanitized+".webp")
+				log.Printf("Using generated destination path: %s", destPath)
 			}
 
-			// Generate unique filename
-			fullPath := generateUniqueFilename(destPath, prompt)
-			log.Printf("Generated full path for image: %s", fullPath)
+			// Generate unique filename with error handling
+			fullPath, err := generateUniqueFilename(destPath, prompt)
+			if err != nil {
+				log.Printf("Error generating unique filename: %v", err)
+				sendError(encoder, request.ID, InternalError, fmt.Sprintf("Error generating filename: %v", err))
+				continue
+			}
+			log.Printf("Generated unique filename: %s", fullPath)
 
 			// Get dimensions with more detailed logging
 			width := 1920
@@ -188,7 +200,7 @@ func main() {
 				log.Printf("Using default height: %d", height)
 			}
 
-			// Add timeout context for image generation
+			// Generate image
 			log.Printf("Starting image generation with OpenAI...")
 			imageURL, err := openai.GenerateImage(prompt, width, height)
 			if err != nil {
@@ -198,7 +210,7 @@ func main() {
 			}
 			log.Printf("Successfully generated image URL: %s", imageURL)
 
-			// Download image with logging
+			// Download image
 			log.Printf("Starting image download...")
 			if err := openai.DownloadImage(imageURL, fullPath); err != nil {
 				log.Printf("Error downloading image: %v", err)
@@ -220,6 +232,7 @@ func main() {
 				},
 			}
 			log.Printf("Sending successful response for image generation")
+
 		default:
 			sendError(encoder, request.ID, MethodNotFound, "Method not implemented")
 			continue
@@ -247,7 +260,6 @@ func sendError(encoder *json.Encoder, id interface{}, code int, message string) 
 }
 
 func sendResponse(encoder *json.Encoder, response interface{}) {
-
 	if err := encoder.Encode(response); err != nil {
 		log.Printf("Error encoding response: %v", err)
 	}
