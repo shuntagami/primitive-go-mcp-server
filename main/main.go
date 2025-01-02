@@ -80,7 +80,7 @@ func main() {
                         "description": "Path where the generated image should be saved"
                     }
                 },
-                "required": ["prompt", "destination"]
+                "required": ["prompt"]
             }`)
 
 			response = JSONRPCResponse{
@@ -222,11 +222,11 @@ func main() {
 			response = JSONRPCResponse{
 				JSONRPC: "2.0",
 				ID:      request.ID,
-				Result: map[string]interface{}{
-					"content": []map[string]interface{}{
+				Result: CallToolResult{
+					Content: []ToolContent{
 						{
-							"type": "text",
-							"text": fmt.Sprintf("Image generated and saved to: %s", fullPath),
+							Type: "text",
+							Text: fmt.Sprintf("Image generated and saved to: %s", fullPath),
 						},
 					},
 				},
@@ -249,13 +249,15 @@ func main() {
 
 func sendError(encoder *json.Encoder, id interface{}, code int, message string) {
 	response := JSONRPCResponse{
-		JSONRPC: "2.0",
+		JSONRPC: "2.0",  // Add this
 		ID:      id,
+		Result:  nil,    // Explicitly set result to nil when there's an error
 		Error: &JSONRPCError{
 			Code:    code,
 			Message: message,
 		},
 	}
+	log.Printf("Sending error response: %v", PrettyJSON(response))
 	sendResponse(encoder, response)
 }
 

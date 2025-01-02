@@ -50,6 +50,15 @@ type Tool struct {
 	InputSchema json.RawMessage `json:"inputSchema"`
 }
 
+type CallToolResult struct {
+	Content []ToolContent `json:"content"`
+}
+
+type ToolContent struct {
+	Type string `json:"type"`
+	Text string `json:"text"`
+}
+
 // Types for resources
 type ListResourcesResult struct {
 	Resources []Resource `json:"resources"`
