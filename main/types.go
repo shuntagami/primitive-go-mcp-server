@@ -1,5 +1,7 @@
 package main
 
+import "encoding/json"
+
 // JSON-RPC 2.0 base types
 type JSONRPCRequest struct {
 	JSONRPC string      `json:"jsonrpc"`
@@ -35,6 +37,46 @@ type ServerInfo struct {
 
 type Capabilities struct {
 	Tools map[string]interface{} `json:"tools"`
+}
+
+// Types for tools
+type ListToolsResult struct {
+	Tools []Tool `json:"tools"`
+}
+
+type Tool struct {
+	Name        string          `json:"name"`
+	Description string          `json:"description"`
+	InputSchema json.RawMessage `json:"inputSchema"`
+}
+
+// Types for resources
+type ListResourcesResult struct {
+	Resources []Resource `json:"resources"`
+}
+
+type Resource struct {
+	URI         string `json:"uri"`
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+	MimeType    string `json:"mimeType,omitempty"`
+}
+
+// Types for prompts
+type ListPromptsResult struct {
+	Prompts []Prompt `json:"prompts"`
+}
+
+type Prompt struct {
+	Name        string           `json:"name"`
+	Description string           `json:"description,omitempty"`
+	Arguments   []PromptArgument `json:"arguments,omitempty"`
+}
+
+type PromptArgument struct {
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+	Required    bool   `json:"required,omitempty"`
 }
 
 // Standard JSON-RPC error codes
