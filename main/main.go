@@ -63,21 +63,21 @@ func main() {
                 "properties": {
                     "prompt": {
                         "type": "string",
-                        "description": "Description of the image to generate"
+                        "description": "The prompt that will be sent to StableDiffusion API to generate the image."
                     },
                     "width": {
                         "type": "number",
-                        "description": "Width of the image in pixels",
-                        "default": 512
+                        "description": "Width of the image in pixels (optional, default is 1792)",
+                        "default": 1792
                     },
                     "height": {
                         "type": "number",
-                        "description": "Height of the image in pixels",
-                        "default": 512
+                        "description": "Height of the image in pixels (optional, default is 1024)",
+                        "default": 1024
                     },
                     "destination": {
                         "type": "string",
-                        "description": "Path where the generated image should be saved"
+                        "description": "Absolute path where the generated image should be saved. (optional, saves to default folder if not provided)"
                     }
                 },
                 "required": ["prompt"]
@@ -249,9 +249,9 @@ func main() {
 
 func sendError(encoder *json.Encoder, id interface{}, code int, message string) {
 	response := JSONRPCResponse{
-		JSONRPC: "2.0",  // Add this
+		JSONRPC: "2.0", // Add this
 		ID:      id,
-		Result:  nil,    // Explicitly set result to nil when there's an error
+		Result:  nil, // Explicitly set result to nil when there's an error
 		Error: &JSONRPCError{
 			Code:    code,
 			Message: message,
