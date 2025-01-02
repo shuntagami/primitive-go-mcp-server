@@ -232,7 +232,14 @@ func main() {
 				},
 			}
 			log.Printf("Sending successful response for image generation")
-
+		case "cancelled":
+			if params, ok := request.Params.(map[string]interface{}); ok {
+				log.Printf("Received cancellation notification for request ID: %v, reason: %v",
+					params["requestId"], params["reason"])
+			} else {
+				log.Printf("Received cancellation notification with invalid params")
+			}
+			continue // Skip sending response for notifications
 		default:
 			sendError(encoder, request.ID, MethodNotFound, "Method not implemented")
 			continue
@@ -247,18 +254,27 @@ func main() {
 	log.Printf("imagegen-go MCP server out of loop...")
 }
 
+// Update error handling to match protocol standard
 func sendError(encoder *json.Encoder, id interface{}, code int, message string) {
-	response := JSONRPCResponse{
-		JSONRPC: "2.0", // Add this
-		ID:      id,
-		Result:  nil, // Explicitly set result to nil when there's an error
-		Error: &JSONRPCError{
-			Code:    code,
-			Message: message,
+	// For a null ID in the request, we should respond with a null ID
+	var responseID interface{} = id
+	if id == nil {
+		responseID = nil
+	}
+
+	response := map[string]interface{}{
+		"jsonrpc": "2.0",
+		"id":      responseID,
+		"error": map[string]interface{}{
+			"code":    code,
+			"message": message,
 		},
 	}
+
 	log.Printf("Sending error response: %v", PrettyJSON(response))
-	sendResponse(encoder, response)
+	if err := encoder.Encode(response); err != nil {
+		log.Printf("Error encoding error response: %v", err)
+	}
 }
 
 func sendResponse(encoder *json.Encoder, response interface{}) {
