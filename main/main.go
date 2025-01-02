@@ -10,47 +10,62 @@ func main() {
 	decoder := json.NewDecoder(os.Stdin)
 	encoder := json.NewEncoder(os.Stdout)
 
-	var req map[string]interface{}
-	if err := decoder.Decode(&req); err != nil {
+	// Read the request
+	var request JSONRPCRequest
+	if err := decoder.Decode(&request); err != nil {
 		log.Printf("Error decoding request: %v", err)
+		sendError(encoder, nil, ParseError, "Failed to parse JSON")
 		return
 	}
 
-	log.Printf("Received request: %v", PrettyJSON(req))
+	log.Printf("Received request: %v", PrettyJSON(request))
 
-	method, hasMethod := req["method"].(string)
-	id, hasId := req["id"]
-	var response map[string]interface{}
-
-	if hasMethod && hasId {
-		switch method {
-		case "initialize":
-			response = map[string]interface{}{
-				"jsonrpc": "2.0",
-				"id":      id,
-				"result": map[string]interface{}{
-					"protocolVersion": "2024-11-05",
-					"serverInfo": map[string]interface{}{
-						"name":    "imagegen-go",
-						"version": "1.0.0",
-					},
-					"capabilities": map[string]interface{}{
-						"tools": map[string]interface{}{},
-					},
-				},
-			}
-		}
-
+	// Basic validation
+	if request.JSONRPC != "2.0" {
+		sendError(encoder, request.ID, InvalidRequest, "Only JSON-RPC 2.0 is supported")
+		return
 	}
 
-	if response != nil {
+	// Handle methods
+	switch request.Method {
+	case "initialize":
+		response := JSONRPCResponse{
+			JSONRPC: "2.0",
+			ID:      request.ID,
+			Result: InitializeResult{
+				ProtocolVersion: "2024-11-05",
+				ServerInfo: ServerInfo{
+					Name:    "imagegen-go",
+					Version: "1.0.0",
+				},
+				Capabilities: Capabilities{
+					Tools: map[string]interface{}{},
+				},
+			},
+		}
+
 		log.Printf("Sending response: %v", PrettyJSON(response))
-
-		err := encoder.Encode(response)
-
-		if err != nil {
+		if err := encoder.Encode(response); err != nil {
 			log.Printf("Error encoding response: %v", err)
 		}
+
+	default:
+		sendError(encoder, request.ID, MethodNotFound, "Method not implemented")
+	}
+}
+
+func sendError(encoder *json.Encoder, id interface{}, code int, message string) {
+	response := JSONRPCResponse{
+		JSONRPC: "2.0",
+		ID:      id,
+		Error: &JSONRPCError{
+			Code:    code,
+			Message: message,
+		},
 	}
 
+	log.Printf("Sending error: %v", PrettyJSON(response))
+	if err := encoder.Encode(response); err != nil {
+		log.Printf("Error encoding error response: %v", err)
+	}
 }
