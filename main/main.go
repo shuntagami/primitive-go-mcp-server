@@ -259,15 +259,15 @@ func sendError(encoder *json.Encoder, id interface{}, code int, message string) 
 	// For a null ID in the request, we should respond with a null ID
 	var responseID interface{} = id
 	if id == nil {
-		responseID = nil
+		responseID = ""
 	}
 
-	response := map[string]interface{}{
-		"jsonrpc": "2.0",
-		"id":      responseID,
-		"error": map[string]interface{}{
-			"code":    code,
-			"message": message,
+	response := JSONRPCResponse{
+		JSONRPC: "2.0",
+		ID:      responseID,
+		Error: &JSONRPCError{
+			Code:    code,
+			Message: message,
 		},
 	}
 
