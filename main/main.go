@@ -226,7 +226,7 @@ func main() {
 					Content: []ToolContent{
 						{
 							Type: "text",
-							Text: fmt.Sprintf("Image generated and saved to: %s", fullPath),
+							Text: fmt.Sprintf("Image generated and saved to: %s\nOriginal URL: %s", fullPath, imageURL),
 						},
 					},
 				},
